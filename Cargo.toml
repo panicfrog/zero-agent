@@ -1,0 +1,43 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/zero-ai",
+    "crates/zero-agent",
+    "examples/basic",
+]
+
+[workspace.dependencies]
+# async
+tokio = { version = "1", features = ["full"] }
+tokio-stream = "0.1"
+futures = "0.3"
+async-trait = "0.1"
+tokio-util = { version = "0.7", features = ["rt"] }
+
+# http / SSE
+reqwest = { version = "0.12", default-features = false, features = ["stream", "json", "rustls-tls"] }
+eventsource-stream = "0.2"
+bytes = "1"
+
+# serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# error handling
+thiserror = "1"
+anyhow = "1"
+
+# json schema validation
+jsonschema = "0.29"
+
+# yaml parsing (for skill markdown frontmatter)
+serde_yaml = "0.9"
+
+# unique id generation
+uuid = { version = "1", features = ["v4"] }
+
+# compile-time string concatenation
+const_format = "0.2"
+
+# cancellation
+zero-ai = { path = "crates/zero-ai" }

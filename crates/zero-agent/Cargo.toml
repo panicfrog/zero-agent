@@ -1,0 +1,19 @@
+[package]
+name = "zero-agent"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+zero-ai = { workspace = true }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+futures = { workspace = true }
+async-trait = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+jsonschema = { workspace = true }
+serde_yaml = { workspace = true }
+uuid = { workspace = true }
+const_format = { workspace = true }

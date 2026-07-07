@@ -1,0 +1,11 @@
+[package]
+name = "basic"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+zero-agent = { path = "../../crates/zero-agent" }
+zero-ai = { path = "../../crates/zero-ai" }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+serde_json = { workspace = true }
