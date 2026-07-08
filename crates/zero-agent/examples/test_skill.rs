@@ -121,7 +121,7 @@ async fn main() -> anyhow::Result<()> {
     tokio::spawn(async move {
         while let Some(event) = rx.recv().await {
             match event {
-                AgentEvent::TurnStart => println!("\n--- turn ---"),
+                AgentEvent::TurnStart{..} => println!("\n--- turn ---"),
                 AgentEvent::ToolExecutionStart { tool_name, args, .. } => {
                     println!("[call] {} args={}", tool_name, args);
                 }
@@ -131,12 +131,13 @@ async fn main() -> anyhow::Result<()> {
                 }
                 AgentEvent::MessageDelta {
                     event: zero_ai::types::StreamEvent::TextDelta { delta, .. },
+                    ..
                 } => {
                     print!("{delta}");
                     use std::io::Write;
                     std::io::stdout().flush().ok();
                 }
-                AgentEvent::MessageEnd { message } => {
+                AgentEvent::MessageEnd { message, .. } => {
                     println!();
                     println!("[usage] in={} out={}", message.usage.input_tokens, message.usage.output_tokens);
                 }

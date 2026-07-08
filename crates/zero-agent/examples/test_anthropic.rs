@@ -30,12 +30,13 @@ async fn main() -> anyhow::Result<()> {
             match event {
                 AgentEvent::MessageDelta {
                     event: zero_ai::types::StreamEvent::TextDelta { delta, .. },
+                    ..
                 } => {
                     print!("{delta}");
                     use std::io::Write;
                     std::io::stdout().flush().ok();
                 }
-                AgentEvent::MessageEnd { message } => {
+                AgentEvent::MessageEnd { message , ..} => {
                     println!();
                     println!(
                         "[usage] in={} out={}",

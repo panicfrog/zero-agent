@@ -64,12 +64,13 @@ async fn run_case(label: &str, skill: Skill, user_input: &str, api_key: &str) {
                 }
                 AgentEvent::MessageDelta {
                     event: zero_ai::types::StreamEvent::TextDelta { delta, .. },
+                    ..
                 } => {
                     print!("{delta}");
                     use std::io::Write;
                     std::io::stdout().flush().ok();
                 }
-                AgentEvent::MessageEnd { message } => {
+                AgentEvent::MessageEnd { message , ..} => {
                     println!();
                     println!("[usage] in={} out={}", message.usage.input_tokens, message.usage.output_tokens);
                 }
