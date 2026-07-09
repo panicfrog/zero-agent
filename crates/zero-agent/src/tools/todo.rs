@@ -76,6 +76,8 @@ impl Tool for TodoTool {
          dependencies, and track execution progress."
     }
 
+    fn is_concurrency_safe(&self, _: &Value) -> bool { true }
+
     fn parameters_schema(&self) -> Value {
         serde_json::json!({
             "type": "object",

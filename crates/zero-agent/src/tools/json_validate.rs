@@ -16,6 +16,8 @@ impl Tool for JsonValidateTool {
          Returns a list of validation errors, or confirms the data is valid."
     }
 
+    fn is_concurrency_safe(&self, _: &Value) -> bool { true }
+
     fn parameters_schema(&self) -> Value {
         serde_json::json!({
             "type": "object",

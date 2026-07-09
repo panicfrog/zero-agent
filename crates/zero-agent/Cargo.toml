@@ -17,3 +17,6 @@ jsonschema = { workspace = true }
 serde_yaml = { workspace = true }
 uuid = { workspace = true }
 const_format = { workspace = true }
+
+[dev-dependencies]
+parking_lot = { workspace = true }

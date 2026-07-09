@@ -33,6 +33,11 @@ pub trait Tool: Send + Sync {
     /// 标记该工具会派生子 agent。
     /// 子 agent 加载 skill 时会过滤掉此类工具，防止递归。
     fn is_agent_spawner(&self) -> bool { false }
+    /// Whether this specific call may run concurrently with other
+    /// concurrency-safe calls in the same turn. Defaults to `false`
+    /// (conservative). Read-only tools override to `true`. Args-based so a
+    /// tool like Bash can return `true` for `ls` and `false` for `rm`.
+    fn is_concurrency_safe(&self, _args: &serde_json::Value) -> bool { false }
 
     /// 将本工具转换为发给 LLM 的 ToolSpec
     fn to_spec(&self) -> zero_ai::types::ToolSpec {

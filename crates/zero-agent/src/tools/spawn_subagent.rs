@@ -38,6 +38,8 @@ impl Tool for SpawnSubAgentTool {
 
     fn is_agent_spawner(&self) -> bool { true }
 
+    fn is_concurrency_safe(&self, _: &Value) -> bool { true }
+
     fn description(&self) -> &str {
         "Spawn a pre-defined sub-agent to handle an isolated task. \
          The sub-agent runs in its own context — only the final result is returned. \

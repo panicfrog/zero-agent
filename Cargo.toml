@@ -27,6 +27,9 @@ serde_json = "1"
 thiserror = "1"
 anyhow = "1"
 
+# sync primitives (no-poison Mutex/RwLock)
+parking_lot = "0.12"
+
 # json schema validation
 jsonschema = "0.29"
 

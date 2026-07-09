@@ -34,17 +34,6 @@ pub trait AfterToolCallHook: Send + Sync {
 }
 
 // ---------------------------------------------------------------------------
-// ToolExecutionMode
-// ---------------------------------------------------------------------------
-
-#[derive(Debug, Clone, Default)]
-pub enum ToolExecutionMode {
-    #[default]
-    Parallel,
-    Sequential,
-}
-
-// ---------------------------------------------------------------------------
 // AgentContext
 // ---------------------------------------------------------------------------
 
@@ -56,7 +45,6 @@ pub struct AgentContext {
     pub model: Model,
     pub is_subagent: bool,
     pub max_iterations: usize,
-    pub tool_execution: ToolExecutionMode,
     pub before_tool_call: Option<Arc<dyn BeforeToolCallHook>>,
     pub after_tool_call: Option<Arc<dyn AfterToolCallHook>>,
 }
@@ -74,7 +62,6 @@ pub struct AgentContextBuilder {
     extra_tools: Vec<Arc<dyn Tool>>,
     is_subagent: bool,
     max_iterations: usize,
-    tool_execution: ToolExecutionMode,
     before_tool_call: Option<Arc<dyn BeforeToolCallHook>>,
     after_tool_call: Option<Arc<dyn AfterToolCallHook>>,
 }
@@ -90,7 +77,6 @@ impl AgentContextBuilder {
             extra_tools: Vec::new(),
             is_subagent: false,
             max_iterations: 50,
-            tool_execution: ToolExecutionMode::Parallel,
             before_tool_call: None,
             after_tool_call: None,
         }
@@ -133,11 +119,6 @@ impl AgentContextBuilder {
 
     pub fn max_iterations(mut self, n: usize) -> Self {
         self.max_iterations = n;
-        self
-    }
-
-    pub fn tool_execution(mut self, mode: ToolExecutionMode) -> Self {
-        self.tool_execution = mode;
         self
     }
 
@@ -269,7 +250,6 @@ impl AgentContextBuilder {
             model: self.model,
             is_subagent: self.is_subagent,
             max_iterations: self.max_iterations,
-            tool_execution: self.tool_execution,
             before_tool_call: self.before_tool_call,
             after_tool_call: self.after_tool_call,
         }
