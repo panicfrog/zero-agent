@@ -33,9 +33,6 @@ pub struct TodoItem {
     pub status: TodoStatus,
     /// 该任务是否可与其他 parallel=true 的任务并发执行
     pub parallel: bool,
-    /// 依赖的任务 ID 列表，这些任务完成后本任务才能开始
-    #[serde(skip_serializing_if = "Vec::is_empty", default)]
-    pub depends_on: Vec<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub notes: Option<String>,
 }
@@ -93,7 +90,7 @@ impl Tool for TodoTool {
                 },
                 "id": {
                     "type": "integer",
-                    "description": "ID of the todo item. For 'create': optional — specify a planned id (e.g. 1,2,3) so depends_on can reference it before creation; if omitted or conflicting, auto-assigned. Required for 'update' and 'complete'."
+                    "description": "ID of the todo item. For 'create': optional — specify a planned id (e.g. 1,2,3); if omitted or conflicting, auto-assigned. Required for 'update' and 'complete'."
                 },
                 "status": {
                     "type": "string",
@@ -103,11 +100,6 @@ impl Tool for TodoTool {
                 "parallel": {
                     "type": "boolean",
                     "description": "Whether this task can run concurrently with other parallel=true tasks. Default: false. Use true when the task is independent and can be dispatched to parallel_subagent."
-                },
-                "depends_on": {
-                    "type": "array",
-                    "items": { "type": "integer" },
-                    "description": "IDs of tasks that must be completed before this task can start. Declarative — you can reference ids that haven't been created yet (useful when creating all todos in parallel upfront)."
                 },
                 "notes": {
                     "type": "string",
@@ -131,10 +123,6 @@ impl Tool for TodoTool {
                     None => return ToolResult::err("'create' requires 'title'"),
                 };
                 let parallel = args["parallel"].as_bool().unwrap_or(false);
-                let depends_on: Vec<usize> = args["depends_on"]
-                    .as_array()
-                    .map(|arr| arr.iter().filter_map(|v| v.as_u64().map(|n| n as usize)).collect())
-                    .unwrap_or_default();
                 let notes = args["notes"].as_str().map(str::to_string);
 
                 let mut items = self.items.lock().unwrap();
@@ -154,17 +142,11 @@ impl Tool for TodoTool {
                     title: title.clone(),
                     status: TodoStatus::Pending,
                     parallel,
-                    depends_on: depends_on.clone(),
                     notes,
                 });
                 drop(items);
 
-                let dep_str = if depends_on.is_empty() {
-                    String::new()
-                } else {
-                    format!(", depends_on={:?}", depends_on)
-                };
-                ToolResult::ok(format!("Created todo #{id}: {title} [parallel={parallel}{dep_str}]"))
+                ToolResult::ok(format!("Created todo #{id}: {title} [parallel={parallel}]"))
             }
 
             "list" => {
@@ -173,13 +155,9 @@ impl Tool for TodoTool {
                     return ToolResult::ok("No todo items.");
                 }
                 let lines: Vec<String> = items.iter().map(|item| {
-                    let mut meta = format!("parallel={}", item.parallel);
-                    if !item.depends_on.is_empty() {
-                        meta.push_str(&format!(", depends_on={:?}", item.depends_on));
-                    }
                     let notes = item.notes.as_deref().map(|n| format!(" — {n}")).unwrap_or_default();
-                    format!("[{}] #{}: {} ({}){}",
-                        item.status, item.id, item.title, meta, notes)
+                    format!("[{}] #{}: {} (parallel={}){}",
+                        item.status, item.id, item.title, item.parallel, notes)
                 }).collect();
                 ToolResult::ok(lines.join("\n"))
             }
@@ -204,17 +182,12 @@ impl Tool for TodoTool {
                         if let Some(p) = args["parallel"].as_bool() {
                             item.parallel = p;
                         }
-                        if let Some(arr) = args["depends_on"].as_array() {
-                            item.depends_on = arr.iter()
-                                .filter_map(|v| v.as_u64().map(|n| n as usize))
-                                .collect();
-                        }
                         if let Some(n) = args["notes"].as_str() {
                             item.notes = Some(n.to_string());
                         }
                         ToolResult::ok(format!(
-                            "Updated todo #{id}: status={}, parallel={}, depends_on={:?}",
-                            item.status, item.parallel, item.depends_on
+                            "Updated todo #{id}: status={}, parallel={}",
+                            item.status, item.parallel
                         ))
                     }
                 }
@@ -260,34 +233,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_depends_on() {
+    async fn test_update_parallel() {
         let t = TodoTool::new();
         exec(&t, serde_json::json!({"operation": "create", "title": "Task A"})).await;
         exec(&t, serde_json::json!({"operation": "create", "title": "Task B"})).await;
-        let r = exec(&t, serde_json::json!({"operation": "create", "title": "Task C", "depends_on": [1, 2]})).await;
-        assert!(r.content.contains("depends_on"));
-        let list = exec(&t, serde_json::json!({"operation": "list"})).await;
-        assert!(list.content.contains("depends_on=[1, 2]"));
-    }
-
-    #[tokio::test]
-    async fn test_forward_depends_on() {
-        // depends_on 允许前向引用（被依赖方尚未创建），create 不应报错
-        let t = TodoTool::new();
-        let r = exec(&t, serde_json::json!({"operation": "create", "title": "Task X", "depends_on": [99]})).await;
-        assert!(!r.is_error, "forward depends_on should be allowed at create time");
-    }
-
-
-    #[tokio::test]
-    async fn test_update_parallel_and_deps() {
-        let t = TodoTool::new();
-        exec(&t, serde_json::json!({"operation": "create", "title": "Task A"})).await;
-        exec(&t, serde_json::json!({"operation": "create", "title": "Task B"})).await;
-        exec(&t, serde_json::json!({"operation": "update", "id": 2, "parallel": true, "depends_on": [1]})).await;
+        exec(&t, serde_json::json!({"operation": "update", "id": 2, "parallel": true})).await;
         let r = exec(&t, serde_json::json!({"operation": "list"})).await;
         assert!(r.content.contains("parallel=true"));
-        assert!(r.content.contains("depends_on=[1]"));
     }
 
     #[tokio::test]

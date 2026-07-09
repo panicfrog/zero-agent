@@ -644,10 +644,12 @@ mod tests {
     }
 
     /// Concurrency is driven by is_concurrency_safe, not the `parallel`
-    /// flag. A parallel=false todo issued with another safe call still
-    /// dispatches concurrently; the flag is now only a planning hint.
-    #[tokio::test]
-    async fn todo_parallel_false_still_dispatches_concurrently_when_safe() {
+    /// field on a TodoItem. The `parallel` field is a planning hint for the
+    /// agent (whether to dispatch the *task* to a subagent); it has no
+    /// effect on tool-call dispatch. Both calls below enter one concurrent
+    /// batch regardless of their `parallel` value.
+    #[test]
+    fn todo_parallel_false_still_dispatches_concurrently_when_safe() {
         let todo = Arc::new(TodoTool::new()) as Arc<dyn Tool>;
         let tools: Vec<Arc<dyn Tool>> = vec![todo];
 
@@ -655,22 +657,15 @@ mod tests {
             mk_call_args("p1", "todo", serde_json::json!({"operation":"create","id":1,"title":"P-false","parallel":false})),
             mk_call_args("p2", "todo", serde_json::json!({"operation":"create","id":2,"title":"P-true","parallel":true})),
         ];
-        let results = execute_tool_calls(
-            &calls, &tools, None, None, "s".into(), emit_noop(),
-        ).await;
 
-        // both safe (todo), regardless of `parallel` flag → one concurrent batch
-        assert_eq!(results.len(), 2);
-        assert!(!results[0].is_error && !results[1].is_error);
-        assert_eq!(results[0].tool_call_id, "p1");
-        assert_eq!(results[1].tool_call_id, "p2");
-
-        let list = execute_tool_calls(
-            &[mk_call_args("l", "todo", serde_json::json!({"operation":"list"}))],
-            &tools, None, None, "s".into(), emit_noop(),
-        ).await;
-        let txt = list[0].content[0].as_text().unwrap();
-        assert!(txt.contains("parallel=false"));
-        assert!(txt.contains("parallel=true"));
+        // partition_tool_calls must merge both into a single safe batch,
+        // proving the `parallel` field on the todo item does not influence
+        // dispatch concurrency.
+        let batches = partition_tool_calls(&calls, &tools);
+        assert_eq!(batches.len(), 1, "both todo calls should merge into one concurrent batch");
+        assert!(batches[0].safe, "the batch must be marked safe");
+        assert_eq!(batches[0].calls.len(), 2, "both calls must be in the batch");
+        assert_eq!(batches[0].calls[0].id, "p1");
+        assert_eq!(batches[0].calls[1].id, "p2");
     }
 }
