@@ -26,22 +26,25 @@ type Emit = Arc<dyn Fn(AgentEvent) + Send + Sync>;
 
 /// 运行 agent，返回最终文本输出。
 ///
-/// - `initial_prompt`：用户初始消息文本
+/// - `user_message`：本轮用户消息文本，追加到 ctx.messages 后继续对话
 /// - `event_tx`：可选的事件通道，用于观察 agent 内部状态（含 session_id）
+///
+/// ctx 以 &mut 借用传入，调用方保有所有权，可多次调用实现多轮对话。
+/// 每轮结束后 ctx.messages 包含完整历史，可通过 ctx.snapshot() 持久化。
 pub async fn agent_run(
-    mut ctx: AgentContext,
-    initial_prompt: impl Into<String>,
+    ctx: &mut AgentContext,
+    user_message: impl Into<String>,
     event_tx: Option<mpsc::UnboundedSender<AgentEvent>>,
 ) -> Result<String> {
     let session_id = ctx.session_id.clone();
     let emit = make_emitter(event_tx);
 
-    // 追加初始用户消息
-    ctx.messages.push(Message::User(UserMessage::new(initial_prompt)));
+    // 追加本轮用户消息
+    ctx.messages.push(Message::User(UserMessage::new(user_message)));
 
     emit(AgentEvent::AgentStart { session_id: session_id.clone() });
 
-    let result = run_loop(&mut ctx, emit.clone()).await;
+    let result = run_loop(ctx, emit.clone()).await;
 
     let final_messages = ctx.messages.clone();
     emit(AgentEvent::AgentEnd { session_id, messages: final_messages });

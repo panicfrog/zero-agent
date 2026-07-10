@@ -11,8 +11,9 @@ use crate::{
     },
 };
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use zero_ai::types::Model;
+use zero_ai::types::{Message, Model};
 
 // ---------------------------------------------------------------------------
 // Hook traits
@@ -37,10 +38,13 @@ pub trait AfterToolCallHook: Send + Sync {
 // AgentContext
 // ---------------------------------------------------------------------------
 
+/// Agent 运行上下文。实现 Clone，Arc 字段 clone 后共享引用（不复制底层数据）。
+/// 可直接在内存中缓存复用，或通过 snapshot()/from_snapshot() 序列化持久化。
+#[derive(Clone)]
 pub struct AgentContext {
     pub session_id: String,
     pub system_prompt: String,
-    pub messages: Vec<zero_ai::types::Message>,
+    pub messages: Vec<Message>,
     pub tools: Vec<Arc<dyn Tool>>,
     pub model: Model,
     pub is_subagent: bool,
@@ -49,12 +53,53 @@ pub struct AgentContext {
     pub after_tool_call: Option<Arc<dyn AfterToolCallHook>>,
 }
 
+impl AgentContext {
+    /// 导出可序列化的快照（仅含消息历史等纯数据，不含 tools/hooks）。
+    /// 用于持久化到磁盘/数据库后再通过 AgentContextBuilder::from_snapshot 恢复。
+    pub fn snapshot(&self) -> AgentContextSnapshot {
+        AgentContextSnapshot {
+            session_id: self.session_id.clone(),
+            system_prompt: self.system_prompt.clone(),
+            messages: self.messages.clone(),
+            model_id: self.model.id.clone(),
+            model_provider: self.model.provider.clone(),
+            model_api_key: self.model.api_key.clone(),
+            model_base_url: self.model.base_url.clone(),
+            model_max_tokens: self.model.max_tokens,
+            is_subagent: self.is_subagent,
+            max_iterations: self.max_iterations,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// AgentContextSnapshot — 可序列化的纯数据快照
+// ---------------------------------------------------------------------------
+
+/// AgentContext 的可序列化快照，仅包含纯数据（消息历史、system prompt、model 配置等）。
+/// tools / hooks 不可序列化，恢复时需通过 AgentContextBuilder 重新注册。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentContextSnapshot {
+    pub session_id: String,
+    pub system_prompt: String,
+    pub messages: Vec<Message>,
+    /// Model 字段拆开序列化，避免依赖 Model 实现 Serialize
+    pub model_id: String,
+    pub model_provider: zero_ai::types::Provider,
+    pub model_api_key: String,
+    pub model_base_url: Option<String>,
+    pub model_max_tokens: u32,
+    pub is_subagent: bool,
+    pub max_iterations: usize,
+}
+
 // ---------------------------------------------------------------------------
 // Builder
 // ---------------------------------------------------------------------------
 
 pub struct AgentContextBuilder {
     session_id: Option<String>,
+    initial_messages: Vec<Message>,
     base_system_prompt: String,
     model: Model,
     skills: Vec<Arc<Skill>>,
@@ -70,6 +115,7 @@ impl AgentContextBuilder {
     pub fn new(base_system_prompt: impl Into<String>, model: Model) -> Self {
         AgentContextBuilder {
             session_id: None,
+            initial_messages: Vec::new(),
             base_system_prompt: base_system_prompt.into(),
             model,
             skills: Vec::new(),
@@ -77,6 +123,30 @@ impl AgentContextBuilder {
             extra_tools: Vec::new(),
             is_subagent: false,
             max_iterations: 50,
+            before_tool_call: None,
+            after_tool_call: None,
+        }
+    }
+
+    /// 从快照恢复，保留原有 session_id、system_prompt 和消息历史。
+    /// 调用方仍需重新注册 skills/tools/hooks（它们不可序列化）。
+    pub fn from_snapshot(snap: AgentContextSnapshot) -> Self {
+        AgentContextBuilder {
+            session_id: Some(snap.session_id),
+            initial_messages: snap.messages,
+            base_system_prompt: String::new(),
+            model: Model {
+                id: snap.model_id,
+                provider: snap.model_provider,
+                api_key: snap.model_api_key,
+                base_url: snap.model_base_url,
+                max_tokens: snap.model_max_tokens,
+            },
+            skills: Vec::new(),
+            sub_agents: Vec::new(),
+            extra_tools: Vec::new(),
+            is_subagent: snap.is_subagent,
+            max_iterations: snap.max_iterations,
             before_tool_call: None,
             after_tool_call: None,
         }
@@ -245,7 +315,7 @@ impl AgentContextBuilder {
         AgentContext {
             session_id,
             system_prompt,
-            messages: Vec::new(),
+            messages: self.initial_messages,
             tools,
             model: self.model,
             is_subagent: self.is_subagent,

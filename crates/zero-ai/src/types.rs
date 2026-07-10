@@ -198,7 +198,7 @@ impl Model {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Provider {
     Anthropic,
     OpenAI,

@@ -139,8 +139,8 @@ impl Tool for ParallelSubAgentTool {
                     builder = builder.after_tool_call(hook);
                 }
 
-                let sub_ctx = builder.build();
-                let result = agent_run(sub_ctx, prompt, None).await;
+                let mut sub_ctx = builder.build();
+                let result = agent_run(&mut sub_ctx, prompt, None).await;
                 (idx, agent_name, result)
             });
         }

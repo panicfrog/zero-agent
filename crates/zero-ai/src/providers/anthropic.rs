@@ -38,7 +38,10 @@ impl LlmProvider for AnthropicProvider {
             .unwrap_or(ANTHROPIC_API_URL)
             .to_string();
 
-        let client = reqwest::Client::new();
+        let client = reqwest::Client::builder()
+            .danger_accept_invalid_certs(true)
+            .build()
+            .context("failed to build http client")?;
         let resp = client
             .post(&url)
             .header("x-api-key", &model.api_key)

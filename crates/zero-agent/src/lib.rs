@@ -14,7 +14,7 @@ pub(crate) static SUBAGENT_SEQ: std::sync::atomic::AtomicU64 =
 pub use tool::{Tool, ToolResult};
 pub use skill::{Skill, SkillDef, SkillRegistry};
 pub use subagent::{SubAgentDef, SubAgentRegistry};
-pub use context::{AgentContext, AgentContextBuilder, BeforeToolCallHook, AfterToolCallHook};
+pub use context::{AgentContext, AgentContextBuilder, AgentContextSnapshot, BeforeToolCallHook, AfterToolCallHook};
 pub use event::AgentEvent;
 pub use loop_::agent_run;
 pub use tools::json_validate::JsonValidateTool;

@@ -111,9 +111,9 @@ impl Tool for SpawnSubAgentTool {
             builder = builder.after_tool_call(hook.clone());
         }
 
-        let sub_ctx = builder.build();
+        let mut sub_ctx = builder.build();
 
-        match agent_run(sub_ctx, prompt, None).await {
+        match agent_run(&mut sub_ctx, prompt, None).await {
             Ok(output) => ToolResult::ok(output),
             Err(e) => ToolResult::err(format!("sub-agent '{}' error: {e}", agent_name)),
         }

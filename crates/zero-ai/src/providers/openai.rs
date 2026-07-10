@@ -33,7 +33,10 @@ impl LlmProvider for OpenAIProvider {
             .unwrap_or(OPENAI_API_URL)
             .to_string();
 
-        let client = reqwest::Client::new();
+        let client = reqwest::Client::builder()
+            .danger_accept_invalid_certs(true)
+            .build()
+            .context("failed to build http client")?;
         let resp = client
             .post(&url)
             .bearer_auth(&model.api_key)
